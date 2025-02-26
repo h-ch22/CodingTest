@@ -14,4 +14,4 @@ for i, s in enumerate(sentence):
     new_s = hashes[s]
     result += new_s * (31 ** i)
 
-print(result)
+print(result % 1234567891)
