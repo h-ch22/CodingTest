@@ -1,58 +1,41 @@
 import sys
 from collections import deque
 
-dfs_visited = []
-def dfs(v: int, graph: dict[int, list[int]]):
-    dfs_visited.append(v)
+def dfs(graph, v, visited):
+    visited[v] = True
+    print(v, end = ' ')
 
-    if v in graph.keys():
-        for nxt in graph[v]:
-            if nxt not in dfs_visited:
-                dfs(nxt, graph)
+    for i in graph[v]:
+        if not visited[i]:
+            dfs(graph, i, visited)
+
+def bfs(graph, start, visited):
+    queue = deque([start])
+    visited[start] = True
+
+    while queue:
+        v = queue.popleft()
+        print(v, end = ' ')
+        for i in graph[v]:
+            if not visited[i]:
+                queue.append(i)
+                visited[i] = True
 
 n, m, v = map(int, sys.stdin.readline().rstrip().split())
-graph: dict[int, list[int]] = {}
+graph = [[] for _ in range(n+1)]
 
 for _ in range(m):
-    l, r = map(int, sys.stdin.readline().rstrip().split())
+    a, b = map(int, sys.stdin.readline().rstrip().split())
+    graph[a].append(b)
+    graph[b].append(a)
 
-    if l in graph.keys():
-        graph[l].append(r)
+for i in range(1, n + 1):
+    graph[i].sort()
 
-    else:
-        graph[l] = [r]
+visited = [False] * (n + 1)
+dfs(graph, v, visited)
 
-    if r in graph.keys():
-        graph[r].append(l)
-    else:
-        graph[r] = [l]
+print()
 
-for k in graph.keys():
-    graph[k].sort()
-
-dfs(v, graph)
-
-bfs_visited = []
-q = deque([v])
-bfs_visited.append(v)
-
-while q:
-    v = q.popleft()
-
-    if v in graph.keys():
-        for nxt in graph[v]:
-            if nxt not in bfs_visited:
-                bfs_visited.append(nxt)
-                q.append(nxt)
-
-dfs_output = ''
-bfs_output = ''
-
-for d in dfs_visited:
-    dfs_output += f'{str(d)} '
-
-for b in bfs_visited:
-    bfs_output += f'{str(b)} '
-
-print(dfs_output.rstrip())
-print(bfs_output.rstrip())
+visited = [False] * (n + 1)
+bfs(graph, v, visited)
