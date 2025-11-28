@@ -1,47 +1,21 @@
 import sys
-from collections import deque
 
-dfs_visited = []
-def dfs(v: int, graph: dict[int, list[int]]):
-    dfs_visited.append(v)
+def dfs(graph, start, visited):
+    visited[start] = 1
 
-    if v in graph.keys():
-        for nxt in graph[v]:
-            if nxt not in dfs_visited:
-                dfs(nxt, graph)
+    for node in graph[start]:
+        if visited[node] == 0:
+            dfs(graph, node, visited)
 
-n = int(sys.stdin.readline().rstrip())
-m = int(sys.stdin.readline().rstrip())
-graph: dict[int, list[int]] = {}
+n = int(sys.stdin.readline().strip())
+m = int(sys.stdin.readline().strip())
+graph = [[] for _ in range(n+1)]
 
 for _ in range(m):
-    l, r = map(int, sys.stdin.readline().rstrip().split())
+    a, b = map(int, sys.stdin.readline().strip().split())
+    graph[a].append(b)
+    graph[b].append(a)
 
-    if l in graph.keys():
-        graph[l].append(r)
-
-    else:
-        graph[l] = [r]
-
-    if r in graph.keys():
-        graph[r].append(l)
-    else:
-        graph[r] = [l]
-
-for k in graph.keys():
-    graph[k].sort()
-
-bfs_visited = []
-q = deque([1])
-bfs_visited.append(1)
-
-while q:
-    v = q.popleft()
-
-    if v in graph.keys():
-        for nxt in graph[v]:
-            if nxt not in bfs_visited:
-                bfs_visited.append(nxt)
-                q.append(nxt)
-
-print(len(bfs_visited) - 1)
+visited = [0] * (n+1)
+dfs(graph, 1, visited)
+print(sum(visited) - 1)
