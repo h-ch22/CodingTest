@@ -1,21 +1,27 @@
 import sys
 from collections import deque
 
-dx = [-1, 1, 0, 0]
-dy = [0, 0, -1, 1]
-m, n = map(int, sys.stdin.readline().strip().split())
-
-graph = []
+dx, dy = [-1, 1, 0, 0], [0, 0, -1, 1]
 queue = deque()
-days = 0
+m, n = map(int, sys.stdin.readline().strip().split())
+graph = []
+is_all_ripen = True
 
 for _ in range(n):
-    graph.append(list(map(int, sys.stdin.readline().strip().split())))
+    g = list(map(int, sys.stdin.readline().strip().split()))
+    graph.append(g)
 
-for i in range(n):
-    for j in range(m):
-        if graph[i][j] == 1:
-            queue.append((i, j))
+    if g.count(1) != m:
+        is_all_ripen = False
+
+if is_all_ripen:
+    print(0)
+    sys.exit()
+
+for y in range(n):
+    for x in range(m):
+        if graph[y][x] == 1:
+            queue.append((x, y))
 
 while queue:
     x, y = queue.popleft()
@@ -23,23 +29,25 @@ while queue:
     for i in range(4):
         nx, ny = x + dx[i], y + dy[i]
 
-        if nx < 0 or ny < 0 or nx >= n or ny >= m:
+        if nx < 0 or ny < 0 or nx >= m or ny >= n:
             continue
 
-        if graph[nx][ny] == -1 or graph[nx][ny] == 1:
+        if graph[ny][nx] != 0:
             continue
 
-        if graph[nx][ny] == 0:
-            graph[nx][ny] = graph[x][y] + 1
+        if graph[ny][nx] == 0:
+            graph[ny][nx] = graph[y][x] + 1
             queue.append((nx, ny))
 
-for row in graph:
-    for i in row:
-        if i == 0:
+max_day = -1
+
+for y in range(n):
+    for x in range(m):
+        if graph[y][x] == 0:
             print(-1)
-            exit()
+            sys.exit()
 
-    else:
-        days = max(days, max(row))
+        if graph[y][x] > max_day:
+            max_day = graph[y][x]
 
-print(days - 1)
+print(max_day - 1)
