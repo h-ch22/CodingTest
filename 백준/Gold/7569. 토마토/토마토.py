@@ -3,8 +3,8 @@ from collections import deque
 
 dx, dy, dz = [-1, 1, 0, 0, 0, 0], [0, 0, -1, 1, 0, 0], [0, 0, 0, 0, -1, 1]
 m, n, h = map(int, sys.stdin.readline().strip().split())
-graph = []
 queue = deque()
+graph = []
 
 for i in range(h):
     current_floor = []
@@ -14,7 +14,7 @@ for i in range(h):
 
         for k in range(m):
             if g[k] == 1:
-                queue.append((i, j, k))
+                queue.append((k, j, i))
 
         current_floor.append(g)
 
@@ -22,26 +22,26 @@ for i in range(h):
 
 def bfs():
     while queue:
-        z, x, y = queue.popleft()
+        x, y, z = queue.popleft()
 
         for i in range(6):
             nx, ny, nz = x + dx[i], y + dy[i], z + dz[i]
 
-            if 0 <= nx < n and 0 <= ny < m and 0 <= nz < h:
-                if graph[nz][nx][ny] == 0:
-                    graph[nz][nx][ny] = graph[z][x][y] + 1
-                    queue.append((nz, nx, ny))
+            if 0 <= nx < m and 0 <= ny < n and 0 <= nz < h:
+                if graph[nz][ny][nx] == 0:
+                    graph[nz][ny][nx] = graph[z][y][x] + 1
+                    queue.append((nx, ny, nz))
 
 bfs()
 max_days = 0
 
-for i in range(h):
-    for j in range(n):
-        for k in range(m):
-            if graph[i][j][k] == 0:
+for z in range(h):
+    for y in range(n):
+        for x in range(m):
+            if graph[z][y][x] == 0:
                 print(-1)
                 exit()
 
-            max_days = max(max_days, graph[i][j][k])
+            max_days = max(max_days, graph[z][y][x])
 
 print(max_days - 1)
