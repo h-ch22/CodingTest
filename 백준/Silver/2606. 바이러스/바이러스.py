@@ -1,21 +1,26 @@
 import sys
+sys.setrecursionlimit(10**6)
+
+result = 0
 
 def dfs(graph, start, visited):
-    visited[start] = 1
+    visited[start] = True
+    global result
+    result += 1
 
-    for node in graph[start]:
-        if visited[node] == 0:
-            dfs(graph, node, visited)
+    for g in graph[start]:
+        if not visited[g]:
+            dfs(graph, g, visited)
 
 n = int(sys.stdin.readline().strip())
-m = int(sys.stdin.readline().strip())
+pairs = int(sys.stdin.readline().strip())
 graph = [[] for _ in range(n+1)]
+visited = [False for _ in range(n+1)]
 
-for _ in range(m):
+for _ in range(pairs):
     a, b = map(int, sys.stdin.readline().strip().split())
-    graph[a].append(b)
     graph[b].append(a)
+    graph[a].append(b)
 
-visited = [0] * (n+1)
 dfs(graph, 1, visited)
-print(sum(visited) - 1)
+print(result-1)
