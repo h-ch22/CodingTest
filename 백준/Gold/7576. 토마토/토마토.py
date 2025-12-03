@@ -1,53 +1,39 @@
 import sys
 from collections import deque
 
-dx, dy = [-1, 1, 0, 0], [0, 0, -1, 1]
-queue = deque()
 m, n = map(int, sys.stdin.readline().strip().split())
 graph = []
-is_all_ripen = True
+dx, dy = [-1, 1, 0, 0], [0, 0, -1, 1]
+queue = deque()
+
+def bfs():
+    while queue:
+        x, y = queue.popleft()
+
+        for i in range(4):
+            nx, ny = x + dx[i], y + dy[i]
+
+            if 0 <= nx < m and 0 <= ny < n and graph[ny][nx] == 0:
+                graph[ny][nx] = graph[y][x] + 1
+                queue.append((nx, ny))
 
 for _ in range(n):
-    g = list(map(int, sys.stdin.readline().strip().split()))
-    graph.append(g)
+    graph.append(list(map(int, sys.stdin.readline().strip().split())))
 
-    if g.count(1) != m:
-        is_all_ripen = False
+for c in range(n):
+    for r in range(m):
+        if graph[c][r] == 1:
+            queue.append((r, c))
 
-if is_all_ripen:
-    print(0)
-    sys.exit()
+bfs()
+days = 0
 
-for y in range(n):
-    for x in range(m):
-        if graph[y][x] == 1:
-            queue.append((x, y))
+for c in range(n):
+    if 0 in graph[c]:
+        print(-1)
+        exit()
 
-while queue:
-    x, y = queue.popleft()
+    max_d = max(graph[c])
+    days = max(days, max_d)
 
-    for i in range(4):
-        nx, ny = x + dx[i], y + dy[i]
-
-        if nx < 0 or ny < 0 or nx >= m or ny >= n:
-            continue
-
-        if graph[ny][nx] != 0:
-            continue
-
-        if graph[ny][nx] == 0:
-            graph[ny][nx] = graph[y][x] + 1
-            queue.append((nx, ny))
-
-max_day = -1
-
-for y in range(n):
-    for x in range(m):
-        if graph[y][x] == 0:
-            print(-1)
-            sys.exit()
-
-        if graph[y][x] > max_day:
-            max_day = graph[y][x]
-
-print(max_day - 1)
+print(days - 1)
