@@ -1,33 +1,31 @@
 import sys
 from collections import deque
 
-n, m = map(int, sys.stdin.readline().rstrip().split())
-graph = [list(map(int, sys.stdin.readline().rstrip())) for _ in range(n)]
-
-dx = [-1, 1, 0, 0]
-dy = [0, 0, -1, 1]
+dx, dy = [-1, 1, 0, 0], [0, 0, -1, 1]
 
 def bfs(x, y):
-    queue = deque()
-    queue.append((x, y))
+    queue = deque([(x, y)])
+    visited[y][x] = True
 
     while queue:
         x, y = queue.popleft()
 
         for i in range(4):
-            nx = x + dx[i]
-            ny = y + dy[i]
+            nx, ny = x + dx[i], y + dy[i]
 
-            if nx < 0 or ny < 0 or nx >= n or ny >= m:
-                continue
-
-            if graph[nx][ny] == 0:
-                continue
-
-            if graph[nx][ny] == 1:
-                graph[nx][ny] = graph[x][y] + 1
+            if 0 <= nx < m and 0 <= ny < n and graph[ny][nx] != 0 and not visited[ny][nx]:
+                graph[ny][nx] = graph[y][x] + 1
+                visited[ny][nx] = True
                 queue.append((nx, ny))
 
-    return graph[n-1][m-1]
+n, m = map(int, sys.stdin.readline().strip().split())
+graph = []
 
-print(bfs(0, 0))
+for _ in range(n):
+    graph.append(list(map(int, list(sys.stdin.readline().strip()))))
+
+visited = [[False for _ in range(m)] for _ in range(n)]
+bfs(0, 0)
+
+max_move = 0
+print(graph[n-1][m-1])
