@@ -1,7 +1,9 @@
 import sys
 from collections import deque
 
+m, n, h = map(int, sys.stdin.readline().strip().split())
 dx, dy, dz = [-1, 1, 0, 0, 0, 0], [0, 0, -1, 1, 0, 0], [0, 0, 0, 0, -1, 1]
+graph = []
 queue = deque()
 
 def bfs():
@@ -16,9 +18,6 @@ def bfs():
                     graph[nz][ny][nx] = graph[z][y][x] + 1
                     queue.append((nx, ny, nz))
 
-m, n, h = map(int, sys.stdin.readline().strip().split())
-graph = []
-
 for _ in range(h):
     current_floor = []
 
@@ -27,22 +26,22 @@ for _ in range(h):
 
     graph.append(current_floor)
 
-for f in range(h):
-    for c in range(n):
-        for r in range(m):
-            if graph[f][c][r] == 1:
-                queue.append((r, c, f))
+for z in range(h):
+    for y in range(n):
+        for x in range(m):
+            if graph[z][y][x] == 1:
+                queue.append((x, y, z))
 
 bfs()
-max_days = 0
+max_days = -1
 
-for f in range(h):
-    for c in range(n):
-        if 0 in graph[f][c]:
+for z in range(h):
+    for y in range(n):
+        if 0 in graph[z][y]:
             print(-1)
             exit()
 
-        max_day = max(graph[f][c])
-        max_days = max(max_days, max_day)
+        max_d = max(graph[z][y])
+        max_days = max(max_days, max_d)
 
 print(max_days - 1)
