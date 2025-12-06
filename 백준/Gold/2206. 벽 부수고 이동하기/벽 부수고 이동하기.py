@@ -1,12 +1,12 @@
 import sys
 from collections import deque
+from heapq import nlargest
 
 dx, dy = [-1, 1, 0, 0], [0, 0, -1, 1]
 
 def bfs():
-    # 0: 벽을 부수지 않음, 1: 벽을 부숨
-    visited = [[[0] * 2 for _ in range(m)] for _ in range(n)]
     queue = deque([(0, 0, 0)])
+    visited = [[[0] * 2 for _ in range(m)] for _ in range(n)]
     visited[0][0][0] = 1
 
     while queue:
@@ -25,7 +25,7 @@ def bfs():
 
                 elif graph[ny][nx] == 1 and broken == 0:
                     if visited[ny][nx][1] == 0:
-                        visited[ny][nx][1] = visited[y][x][broken] + 1
+                        visited[ny][nx][1] = visited[y][x][0] + 1
                         queue.append((nx, ny, 1))
 
     return -1
