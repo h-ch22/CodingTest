@@ -2,7 +2,8 @@ import sys
 
 n, m = map(int, sys.stdin.readline().strip().split())
 trees = list(map(int, sys.stdin.readline().strip().split()))
-start, end = 1, max(trees)
+
+start, end = 0, max(trees)
 
 while start <= end:
     mid = (start + end) // 2
