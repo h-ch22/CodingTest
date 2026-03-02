@@ -11,26 +11,25 @@ int main() {
     int n;
     cin >> n;
     
-    vector<int> liquors(n);
-    vector<int> dp(n);
+    vector<int> dp(10001);
+    vector<int> liquors(10001);
     
-    for(int i = 0; i < n; i++) {
+    for(int i = 1; i <= n; i++) {
         cin >> liquors[i];
     }
     
-    dp[0] = liquors[0];
+    dp[1] = liquors[1];
+    dp[2] = liquors[1] + liquors[2];
     
-    for(int i = 1; i < n; i++) {
-        if(i > 2) {
-            dp[i] = max(dp[i - 1], max(dp[i - 2] + liquors[i], dp[i - 3] + liquors[i - 1] + liquors[i]));
-        } else if(i == 2) {
-            dp[i] = max(dp[i - 1], max(dp[i - 2] + liquors[i], liquors[i - 1] + liquors[i]));
-        } else {
-            dp[i] = dp[i - 1] + liquors[i];
-        }
+    for(int i = 3; i <= n; i++) {
+        dp[i] = max({
+            dp[i - 1],
+            dp[i - 3] + liquors[i - 1] + liquors[i],
+            dp[i - 2] + liquors[i]
+        });
     }
     
-    cout << dp[n - 1] << "\n";
+    cout << dp[n] << "\n";
     
     return 0;
 }
