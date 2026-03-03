@@ -1,6 +1,9 @@
 #include <iostream>
 #include <vector>
+#include <algorithm>
 #include <numeric>
+
+#define DIVISOR 1000000000
 
 using namespace std;
 
@@ -11,31 +14,25 @@ int main() {
     int n;
     cin >> n;
     
-    long long p = 1000000000;
-
     vector<vector<long long>> dp(n + 1, vector<long long>(10));
-    
-    for(int i = 1; i < 10; i++) {
-        dp[1][i] = static_cast<long long>(1);
-    }
+    fill(dp[1].begin() + 1, dp[1].end(), 1LL);
     
     for(int i = 2; i <= n; i++) {
-        for(int j = 0; j <= 9; j++) {
-            if(j == 0 || j == 9) {
-                dp[i][j] = dp[i - 1][j == 0 ? 1 : 8] % p;
-            } else {
-                dp[i][j] = ((dp[i - 1][j - 1] % p) + (dp[i - 1][j + 1] % p)) % p;
-            }
+        dp[i][0] = dp[i - 1][1] % DIVISOR;
+        dp[i][9] = dp[i - 1][8] % DIVISOR;
+        
+        for(int j = 1; j <= 8; j++) {
+            dp[i][j] = dp[i - 1][j - 1] + dp[i - 1][j + 1] % DIVISOR;
         }
     }
     
-    int sum = 0;
+    long long result = 0;
     
     for(int i = 0; i < 10; i++) {
-        sum = ((sum % p) + (dp[n][i] % p)) % p;
+        result = (result + dp[n][i]) % DIVISOR;
     }
     
-    cout << sum << "\n";
-
+    cout << result << "\n";
+    
     return 0;
 }
