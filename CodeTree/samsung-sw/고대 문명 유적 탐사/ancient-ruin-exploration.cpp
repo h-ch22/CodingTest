@@ -1,101 +1,106 @@
 #include <iostream>
 #include <vector>
-#include <deque>
 #include <algorithm>
-
-#define GRID_SIZE 5
+#include <queue>
+#include <deque>
 
 using namespace std;
 
-struct ScoreAndTrace {
+int k, m;
+vector<vector<int>> grid(5, vector<int>(5));
+queue<int> nums;
+
+const int dr[4] = { -1, 1, 0, 0 };
+const int dc[4] = { 0, 0, -1, 1 };
+
+struct ScoreAndCoords {
     int score;
-    vector<pair<int, int>> trace;
+    vector<pair<int, int>> coords;
+
+    ScoreAndCoords(): score(0) {}
 };
 
-int k, m;
-vector<vector<int>> grid(GRID_SIZE, vector<int>(GRID_SIZE));
-deque<int> nums;
-
-int dr[4] = { -1, 1, 0, 0 };
-int dc[4] = { 0, 0, -1, 1 };
-
-vector<vector<int>> rotate(const int startR, const int startC, const int degree) {
-    int tmp[3][3];
-    vector<vector<int>> gridCopy = grid;
-
-    for(int r = 0; r < 3; r++) {
-        for(int c = 0; c < 3; c++) {
-            if(degree == 90) {
-                tmp[c][3 - 1 - r] = grid[startR + r][startC + c];
-            } else if(degree == 180) {
-                tmp[3 - 1 - r][3 - 1 - c] = grid[startR + r][startC + c];
-            } else {
-                tmp[3 - 1 - c][r] = grid[startR + r][startC + c];
+// r: 세로, c: 가로
+void rotate(vector<vector<int>>& target, const int r, const int c, const int degree) {
+    vector<vector<int>> tmp(3, vector<int>(3));
+    
+    for(int i = 0; i < 3; i++) {
+        for(int j = 0; j < 3; j++) {
+            if(i + r < 5 && j + c < 5) {
+                if(degree == 90) {
+                    tmp[j][2 - i] = grid[i + r][j + c];
+                } else if(degree == 180) {
+                    tmp[2 - i][2 - j] = grid[i + r][j + c];
+                } else {
+                    tmp[2 - j][i] = grid[i + r][j + c];
+                }
             }
         }
     }
 
-    for(int r = 0; r < 3; r++) {
-        for(int c = 0; c < 3; c++) {
-            gridCopy[startR + r][startC + c] = tmp[r][c];
+    for(int i = 0; i < 3; i++) {
+        for(int j = 0; j < 3; j++) {
+            if(i + r < 5 && j + c < 5) {
+                target[i + r][j + c] = tmp[i][j];
+            }
         }
     }
-
-    return gridCopy;
 }
 
-ScoreAndTrace collect(vector<vector<int>>& g, int startR, int startC) {
-    int score = 0;
-    deque<pair<int, int>> queue;
-    vector<vector<bool>> visited(GRID_SIZE, vector<bool>(GRID_SIZE));
-    vector<pair<int, int>> trace;
+ScoreAndCoords bfs(vector<vector<int>>& target, const int r, const int c) {
+    int targetNum = target[r][c];
 
-    queue.emplace_back(startR, startC);
-    visited[startR][startC] = true;
-    trace.emplace_back(startR, startC);
+    deque<pair<int, int>> q;
+    q.emplace_back(r, c);
 
-    int target = g[startR][startC];
+    vector<vector<bool>> visited(5, vector<bool>(5));
+    visited[r][c] = true;
 
-    while(!queue.empty()) {
-        const pair<int, int> current = queue.front();
-        queue.pop_front();
+    vector<pair<int, int>> toChange;
+    toChange.emplace_back(r, c);
 
-        const int r = current.first, c = current.second;
+    while(!q.empty()) {
+        pair<int, int> current = q.front();
+        q.pop_front();
 
         for(int i = 0; i < 4; i++) {
-            int nr = r + dr[i], nc = c + dc[i];
+            int nr = current.first + dr[i];
+            int nc = current.second + dc[i];
 
-            if(0 <= nr && nr < GRID_SIZE && 0 <= nc && nc < GRID_SIZE && !visited[nr][nc] && g[nr][nc] == target) {
-                queue.emplace_back(nr, nc);
-                trace.emplace_back(nr, nc);
+            if(0 <= nr && nr < 5 && 0 <= nc && nc < 5 && !visited[nr][nc] && target[nr][nc] == targetNum) {
                 visited[nr][nc] = true;
+                toChange.emplace_back(nr, nc);
+                q.emplace_back(nr, nc);
             }
         }
     }
 
-    if(trace.size() >= 3) {
-        score = trace.size();
+    ScoreAndCoords result;
 
-        for(const pair<int, int> t: trace) {
-            g[t.first][t.second] = 0;
+    if(toChange.size() >= 3) {
+        result.score += toChange.size();
+        result.coords = toChange;
+        
+        for(const pair<int, int> t: toChange) {
+            target[t.first][t.second] = 0;
         }
-    } else {
-        trace.clear();
     }
 
-    return { score, trace };
+    return result;
 }
 
-ScoreAndTrace getScore(vector<vector<int>>& g) {
-    ScoreAndTrace result;
-    result.score = 0;
+ScoreAndCoords getScore(vector<vector<int>>& target) {
+    ScoreAndCoords result;
 
-    for(int i = 0; i < GRID_SIZE; i++) {
-        for(int j = 0; j < GRID_SIZE; j++) {
-            if(g[i][j] != 0) {
-                ScoreAndTrace r = collect(g, i, j);
-                result.trace.insert(result.trace.end(), r.trace.begin(), r.trace.end());
-                result.score += r.score;
+    for(int i = 0; i < 5; i++) {
+        for(int j = 0; j < 5; j++) {
+            if(target[i][j] != 0) {
+                ScoreAndCoords r = bfs(target, i, j);
+
+                if(r.score > 0) {
+                    result.score += r.score;
+                    result.coords.insert(result.coords.end(), r.coords.begin(), r.coords.end());
+                }
             }
         }
     }
@@ -103,14 +108,29 @@ ScoreAndTrace getScore(vector<vector<int>>& g) {
     return result;
 }
 
+void fill(vector<pair<int, int>>& target) {
+    sort(target.begin(), target.end(), [](const pair<int, int> a, const pair<int, int> b){
+        if(a.second == b.second) {
+            return a.first > b.first;
+        }
+
+        return a.second < b.second;
+    });
+
+    for(const pair<int, int> t: target) {
+        grid[t.first][t.second] = nums.front();
+        nums.pop();
+    }
+}
+
 int main() {
     ios::sync_with_stdio(false);
     cin.tie(nullptr);
 
     cin >> k >> m;
-    
-    for(int i = 0; i < GRID_SIZE; i++) {
-        for(int j = 0; j < GRID_SIZE; j++) {
+
+    for(int i = 0; i < 5; i++) {
+        for(int j = 0; j < 5; j++) {
             cin >> grid[i][j];
         }
     }
@@ -119,72 +139,55 @@ int main() {
         int num;
         cin >> num;
 
-        nums.emplace_back(num);
+        nums.push(num);
     }
 
     while(k--) {
-        int maxValue = -1;
-        int degree = 270;
+        // 1. 회전하기 (작은 각도 -> 작은 열 -> 작은 행)
+        ScoreAndCoords bestResult;
+        bestResult.score = -1;
 
-        vector<pair<int, int>> trace;
-        vector<vector<int>> bestGrid;
+        vector<vector<int>> bestGrid = grid;
 
-        for(const int d: {90, 180, 270}) {
-            for(int j = 0; j < GRID_SIZE - 2; j++) {
-                for(int i = 0; i < GRID_SIZE - 2; i++) {
-                    vector<vector<int>> rotated = rotate(i, j, d);
-                    ScoreAndTrace result = getScore(rotated);
+        for(const int degree: { 90, 180, 270 }) {
+            // rotate 함수에 5보다 작을 때 버리는 로직이 있지만 그렇다고 i < 5 , j < 5로 해버리면 3x3이 아닌 크기가 회전될 수 있기 때문에 여기서 수치를 조정함
+            for(int i = 0; i < 3; i++) {
+                for(int j = 0; j < 3; j++) {
+                    vector<vector<int>> gridCopy = grid;
+                    rotate(gridCopy, j, i, degree);
 
-                    if(
-                        result.score > maxValue ||
-                        (result.score == maxValue && d < degree)
-                    ) {
-                        maxValue = result.score;
-                        degree = d;
-                        bestGrid = rotated;
-                        trace = result.trace;
+                    ScoreAndCoords result = getScore(gridCopy);
+                    
+                    if(result.score > bestResult.score) {
+                        bestResult = result;
+                        bestGrid = gridCopy;
                     }
                 }
             }
         }
 
-        grid = bestGrid;
-
-        if(trace.size() == 0) {
+        // 아무 것도 획득하지 못했으면 바로 종료
+        if(bestResult.score <= 0) {
             break;
         }
 
+        // bestGrid로 업데이트 후 채우기
+        grid = bestGrid;
+        fill(bestResult.coords);
+
+        // 연쇄 유물 획득
         while(true) {
-            sort(trace.begin(), trace.end(), [](const pair<int, int> a, const pair<int, int> b){
-                if(a.second == b.second) {
-                    return a.first > b.first;
-                }
+            ScoreAndCoords result = getScore(grid);
 
-                return a.second < b.second;
-            });
-
-            for(int i = 0; i < trace.size(); i++) {
-                const pair<int, int> target = trace[i];
-
-                int newRelic = nums.front();
-                nums.pop_front();
-
-                grid[target.first][target.second] = newRelic;
-            }
-
-            ScoreAndTrace chainScore = getScore(grid);
-
-            maxValue += chainScore.score;
-            trace = chainScore.trace;
-
-            if(chainScore.score == 0) {
-                cout << maxValue << " ";
+            if(result.score == 0) {
+                cout << bestResult.score << " ";
                 break;
             }
+
+            bestResult.score += result.score;
+            fill(result.coords);
         }
     }
-
-    cout << "\n";
 
     return 0;
 }
