@@ -47,13 +47,12 @@ void rotate(vector<vector<int>>& target, const int r, const int c, const int deg
     }
 }
 
-ScoreAndCoords bfs(vector<vector<int>>& target, const int r, const int c) {
+ScoreAndCoords bfs(vector<vector<int>>& target, const int r, const int c, vector<vector<bool>>& visited) {
     int targetNum = target[r][c];
 
     deque<pair<int, int>> q;
     q.emplace_back(r, c);
 
-    vector<vector<bool>> visited(5, vector<bool>(5));
     visited[r][c] = true;
 
     vector<pair<int, int>> toChange;
@@ -91,11 +90,12 @@ ScoreAndCoords bfs(vector<vector<int>>& target, const int r, const int c) {
 
 ScoreAndCoords getScore(vector<vector<int>>& target) {
     ScoreAndCoords result;
+    vector<vector<bool>> visited(5, vector<bool>(5));
 
     for(int i = 0; i < 5; i++) {
         for(int j = 0; j < 5; j++) {
-            if(target[i][j] != 0) {
-                ScoreAndCoords r = bfs(target, i, j);
+            if(target[i][j] != 0 && !visited[i][j]) {
+                ScoreAndCoords r = bfs(target, i, j, visited);
 
                 if(r.score > 0) {
                     result.score += r.score;
