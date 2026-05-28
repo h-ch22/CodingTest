@@ -149,7 +149,7 @@ int main() {
         int x, y, m, s, d;
         cin >> x >> y >> m >> s >> d;
 
-        Atom atom = Atom(i, x, y, m, s, d);
+        Atom atom = Atom(i, --x, --y, m, s, d);
         atoms.emplace_back(atom);
         grid[x][y].emplace_back(atom);
         lastId = i;
