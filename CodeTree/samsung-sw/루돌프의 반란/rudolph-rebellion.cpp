@@ -1,79 +1,100 @@
 #include <iostream>
 #include <vector>
-#include <cmath>
 #include <algorithm>
+
+#define MIN 1e6
 
 using namespace std;
 
-int n, m, p, c, d, r_r, r_c, currentTurn;
+struct Santa;
+
+int n, m, p, c, d, rR, rC, currentTurn; // n: 게임 판의 크기, m: 턴 수, p: 산타의 수, c: 루돌프의 힘, d: 산타의 힘, r: 세로, c: 가로
+vector<Santa> santas;
+vector<vector<int>> grid; // -1: 루돌프, 0: 빈 칸, 1~ : 산타 id
 
 struct Santa {
     int id, r, c, score, passOutTurn;
     bool isOut, isPassOut;
 
     Santa(): id(-1), r(-1), c(-1), score(0), passOutTurn(-1), isOut(false), isPassOut(false) {}
+
     Santa(int id, int r, int c) {
         this->id = id;
         this->r = r;
         this->c = c;
-        score = 0;
-        isOut = false;
-        isPassOut = false;
-        passOutTurn = -1;
+        this->score = 0;
+        this->passOutTurn = -1;
+        this->isOut = false;
+        this->isPassOut = false;
     }
 
-    void setPassout() {
+    void move(const int nr, const int nc) {
+        // cout << "Move " << id << " from " << r << ", " << c << " to " << nr << ", " << nc << "\n";
+
+        grid[r][c] = 0;
+        
+        if(nr < 0 || n <= nr || nc < 0 || n <= nc) {
+            // cout << id << " is Out!\n";
+            isOut = true;
+            return;
+        }
+
+        r = nr;
+        c = nc;
+        grid[r][c] = id;
+    }
+
+    void setPassOut() {
+        // cout << id << " is Passout!\n";
         isPassOut = true;
         passOutTurn = currentTurn + 2;
     }
 
     void wakeUp() {
-        if(!isOut && currentTurn == passOutTurn) {
+        if(isPassOut && !isOut && currentTurn == passOutTurn) {
             isPassOut = false;
             passOutTurn = -1;
         }
     }
 
-    void setDie() {
-        r = -1;
-        c = -1;
-        isOut = true;
+    void increaseScore(const int amount) {
+        if(isOut) return;
+        score += amount;
+    }
+
+    bool operator <(const Santa& other) const {
+        return this->id < other.id;
     }
 };
 
-vector<Santa> santas;
+int rDr[8] = { -1, 1, 0, 0, -1, 1, -1, 1 };
+int rDc[8] = { 0, 0, -1, 1, 1, -1, -1, 1 };
 
-int dRR[8] = { -1, 1, 0, 0, -1, 1, -1, 1 };
-int dRC[8] = { 0, 0, -1, 1, 1, -1, -1, 1 };
-
-// 상-우-하-좌
-int dSR[4] = { -1, 0, 1, 0 };
-int dSC[4] = { 0, 1, 0, -1 };
+int sDr[4] = { -1, 0, 1, 0 };
+int sDc[4] = { 0, 1, 0, -1 };
 
 int getDistance(int r1, int r2, int c1, int c2) {
-    return abs(((r1 - r2) * (r1 - r2)) + ((c1 - c2) * (c1 - c2)));
+    return ((r1 - r2) * (r1 - r2)) + ((c1 - c2) * (c1 - c2));
 }
 
-pair<int, int> getShortestSanta() {
-    vector<Santa> shortestSantas;
-    int shortest = 2 * (n * n);
+Santa getShortestSanta() {
+    vector<Santa> shortest;
+    int shortestDist = MIN;
 
     for(const Santa& s: santas) {
-        if(!s.isOut) {
-            int distance = getDistance(r_r, s.r, r_c, s.c);
-
-            if(distance < shortest) {
-                shortestSantas.clear();
-                shortest = distance;
-
-                shortestSantas.emplace_back(s);
-            } else if(distance == shortest) {
-                shortestSantas.emplace_back(s);
-            }
+        if(s.isOut) continue;
+        int distance = getDistance(rR, s.r, rC, s.c);
+        
+        if(distance < shortestDist) {
+            shortestDist = distance;
+            shortest.clear();
+            shortest.emplace_back(s);
+        } else if(distance == shortestDist) {
+            shortest.emplace_back(s);
         }
     }
 
-    sort(shortestSantas.begin(), shortestSantas.end(), [](const Santa& s1, const Santa& s2){
+    sort(shortest.begin(), shortest.end(), [](const Santa& s1, const Santa& s2){
         if(s1.r == s2.r) {
             return s1.c > s2.c;
         }
@@ -81,146 +102,138 @@ pair<int, int> getShortestSanta() {
         return s1.r > s2.r;
     });
 
-    return { shortestSantas[0].r, shortestSantas[0].c };
+    return shortest[0];
 }
 
-bool isSantaExists(const int r, const int c) {
-    for(const Santa& s: santas) {
-        if(s.r == r && s.c == c) {
-            return true;
-        }
-    }
+int getSantaIdx(const int id) {
+    auto i = find_if(santas.begin(), santas.end(), [id](const Santa& s){
+        return id == s.id;
+    });
 
-    return false;
+    return distance(santas.begin(), i);
 }
 
-void pushOutSanta(int id, int r, int c, int dr, int dc) {
-    for(Santa& s: santas) {
-        if(s.id == id) {
-            continue;
-        }
+void handleInteraction(const int r, const int c, const int dR, const int dC) {
+    const int id = grid[r][c];
+    const int idx = getSantaIdx(id);
+    const int nr = r + dR;
+    const int nc = c + dC;
 
-        if(s.r == r && s.c == c) {
-            // cout << "PushOut: " << s.id << " | " << s.r << ", " << s.c << " -> " << s.r - dr << ", " << s.c - dc << "( " << dr << ", " << dc << ")" << "\n";
-            s.r += dr;
-            s.c += dc; 
-
-            if(s.r < 0 || s.r >= n || s.c < 0 || s.c >= n) {
-                s.setDie();
-                continue;
-            }
-
-            pushOutSanta(s.id, s.r, s.c, dr, dc);
-        }
-    }
-}
-
-void handleCollision(const pair<int, int> distance, const bool isSantaMoved) {
-    int toR = distance.first * (isSantaMoved ? d : c);
-    int toC = distance.second * (isSantaMoved ? d : c);
-
-    if(isSantaMoved) {
-        toR *= -1;
-        toC *= -1;
-    }
-
-    const int pushR = isSantaMoved ? distance.first * -1 : distance.first;
-    const int pushC = isSantaMoved ? distance.second * -1 : distance.second;
+    // cout << r << ", " << c << " : " << dR << " - " << dC << "\n";
     
-    for(Santa& s: santas) {
-        if(s.r == r_r && s.c == r_c) {
-            if(isSantaMoved) {
-                // cout << "Santa " << s.id << " get points: " << s.score << " + " << d << ": " << s.score + d << "\n";
-
-                s.score += d;
-            } else {
-                // cout << "Santa " << s.id << " get points: " << s.score << " + " << c << ": " << s.score + c << "\n";
-
-                s.score += c;
-            }
-
-            const int expectedR = s.r + toR, expectedC = s.c + toC;
-
-            // cout << "Collision: " << s.id << " | " << s.r << ", " << s.c << " -> " << expectedR << ", " << expectedC << "\n";
-
-            if(expectedR < 0 || expectedR >= n || expectedC < 0 || expectedC >= n) {
-                // cout << "Die: " << s.id << "\n";
-                s.setDie();
-                continue;
-            }
-
-            s.r = expectedR;
-            s.c = expectedC;
-
-            pushOutSanta(s.id, s.r, s.c, pushR, pushC);
-            s.setPassout();
+    if(0 <= nr && nr < n && 0 <= nc && nc < n) {
+        if(grid[nr][nc] >= 1 && grid[nr][nc] != id) {
+            handleInteraction(nr, nc, dR, dC);
         }
     }
+
+    santas[idx].move(nr, nc);
+}
+
+void handleCollision(const int id, const int r, const int c, const int dR, const int dC, const bool isFromRudolph) {
+    const int idx = getSantaIdx(id);
+    santas[idx].setPassOut();
+
+    int nDr = dR, nDc = dC;
+    int nr = r, nc = c;
+
+    if(isFromRudolph) {
+        santas[idx].increaseScore(::c);
+        nDr = dR * ::c;
+        nDc = dC * ::c;
+    } else {
+        santas[idx].increaseScore(d);
+        nDr = dR * -1 * d;
+        nDc = dC * -1 * d;
+    }
+
+    nr += nDr;
+    nc += nDc;
+    
+    // cout << nr << ", " << nc << " : " << nDr << ", " << nDc << "(" << idx << "-" << id << ")" << "\n";
+    
+    if(0 <= nr && nr < n && 0 <= nc && nc < n) {
+        if(grid[nr][nc] >= 1 && grid[nr][nc] != id) {
+            handleInteraction(nr, nc, isFromRudolph ? dR : dR * -1, isFromRudolph ? dC : dC * -1);
+        }
+    }
+    
+    santas[idx].move(nr, nc);
 }
 
 void moveRudolph() {
-    pair<int, int> to = getShortestSanta();
-    int shortest = 2 * (n * n);
-
-    int dr = 0, dc = 0;
+    const Santa& shortest = getShortestSanta();
+    int dist = MIN;
+    int toR = rR, toC = rC, dR = 0, dC = 0;
 
     for(int i = 0; i < 8; i++) {
-        int nr = r_r + dRR[i];
-        int nc = r_c + dRC[i];
+        const int nR = rR + rDr[i];
+        const int nC = rC + rDc[i];
 
-        if(0 <= nr && nr < n && 0 <= nc && nc < n) {
-            int distance = getDistance(to.first, nr, to.second, nc);
+        if(0 <= nR && nR < n && 0 <= nC && nC < n) {
+            int d = getDistance(shortest.r, nR, shortest.c, nC);
 
-            if(distance < shortest) {
-                shortest = distance;
-                dr = dRR[i];
-                dc = dRC[i];
+            if(d < dist) {
+                dist = d;
+                toR = nR;
+                toC = nC;
+                dR = rDr[i];
+                dC = rDc[i];
             }
         }
     }
+    
+    if(grid[toR][toC] >= 1) {
+        // cout << "Collision!\n";
+        handleCollision(grid[toR][toC], toR, toC, dR, dC, true);
+    }
 
-    // cout << "Move Rudolph: " << r_r << ", " << r_c << " -> " << r_r + dr << ", " << r_c + dc << "\n";
-    r_r += dr;
-    r_c += dc;
+    swap(grid[rR][rC], grid[toR][toC]);
 
-    handleCollision({ dr, dc }, false);
+    // cout << "Move rudolph from " << rR << ", " << rC << " to " << toR << ", " << toC << "\n";
+    rR = toR, rC = toC;
 }
 
-void moveSantas() {
+void moveSanta() {
     for(Santa& s: santas) {
-        int shortest = 2 * (n * n);
-        int toR = s.r, toC = s.c;
-        int dr = 0, dc = 0;
-        int originalDistance = getDistance(s.r, r_r, s.c, r_c);
+        if(s.isOut || s.isPassOut) continue;
 
-        if(!s.isPassOut && !s.isOut) {
-            for(int i = 0; i < 4; i++) {
-                int nr = s.r + dSR[i];
-                int nc = s.c + dSC[i];
+        int r = s.r, c = s.c, minDist = MIN, toR = s.r, toC = s.c, dR = 0, dC = 0, currentDist = getDistance(s.r, rR, s.c, rC);
 
-                if(0 <= nr && nr < n && 0 <= nc && nc < n && !isSantaExists(nr, nc)) {
-                    int distance = getDistance(nr, r_r, nc, r_c);
+        for(int i = 0; i < 4; i++) {
+            int nr = r + sDr[i], nc = c + sDc[i];
 
-                    if(distance < shortest && distance < originalDistance) {
-                        shortest = distance;
-                        toR = nr;
-                        toC = nc;
-                        dr = dSR[i];
-                        dc = dSC[i];
-                    }
+            if(0 <= nr && nr < n && 0 <= nc && nc < n && grid[nr][nc] <= 0) {
+                int dist = getDistance(nr, rR, nc, rC);
+                
+                if(dist >= currentDist) continue;
+                
+                if(dist < minDist) {
+                    minDist = dist;
+                    toR = nr;
+                    toC = nc;
+                    dR = sDr[i];
+                    dC = sDc[i];
                 }
             }
+        }
+        
+        // cout << s.id << " : " << s.r << ", " << s.c << " -> " << toR << ", " << toC << "\n";
 
-            if(s.r == toR && s.c == toC) {
-                continue;
-            }
-
-            s.r = toR;
-            s.c = toC;
-            // cout << "Move Santa: " << s.id << " | " << s.r << ", " << s.c << " (" << dr << ", " << dc << ")" << "\n";
-            handleCollision({ dr, dc }, true);
+        if(grid[toR][toC] == -1) {
+            handleCollision(s.id, toR, toC, dR, dC, false);
+        } else {
+            s.move(toR, toC);
         }
     }
+}
+
+bool isAllOut() {
+    for(const Santa& s: santas) {
+        if(!s.isOut) return false;
+    }
+    
+    return true;
 }
 
 void wakeUp() {
@@ -229,62 +242,50 @@ void wakeUp() {
     }
 }
 
-void givePoints() {
-    for(Santa& s: santas) {
-        if(!s.isOut) {
-            s.score++;
-        }
-    }
-}
-
-bool isAllSantaOut() {
-    for(Santa& s: santas) {
-        if(!s.isOut) {
-            return false;
-        }
-    }
-
-    return true;
-}
-
 int main() {
     ios::sync_with_stdio(false);
     cin.tie(nullptr);
 
-    cin >> n >> m >> p >> c >> d >> r_r >> r_c;
-    r_r--;
-    r_c--;
+    cin >> n >> m >> p >> c >> d >> rR >> rC;
+
+    rR--;
+    rC--;
     currentTurn = 1;
 
-    for(int i = 0; i < p; i++) {
-        int id, s_r, s_c;
-        cin >> id >> s_r >> s_c;
+    grid.assign(n, vector<int>(n));
+    santas.assign(p, Santa());
 
-        santas.emplace_back(Santa(id, s_r - 1, s_c - 1));
+    for(int i = 0; i < p; i++) {
+        int id, sR, sC;
+        cin >> id >> sR >> sC;
+
+        santas[i] = Santa(id, --sR, --sC);
+        grid[sR][sC] = id;
     }
 
-    sort(santas.begin(), santas.end(), [](const Santa& a, const Santa& b){
-        return a.id < b.id;
-    });
+    sort(santas.begin(), santas.end());
+    grid[rR][rC] = -1;
+    
+    for(const Santa& s: santas) {
+        // cout << s.id << " : " << s.r << ", " << s.c << "\n";
+    }
 
     while(m--) {
-        if(currentTurn > 1) {
-            if(isAllSantaOut()) {
-                break;
-            }
+        if(isAllOut()) {
+            break;
+        }
+        
+        // cout << "===== Turn " << currentTurn << " =====\n";
 
-            wakeUp();
+        wakeUp();
+        moveRudolph();
+        moveSanta();
+
+        for(Santa& s: santas) {
+            s.increaseScore(1);
         }
 
-        // 루돌프를 움직인다.
-        moveRudolph();
-
-        // 산타를 움직인다.
-        moveSantas();
-
         currentTurn++;
-
-        givePoints();
     }
 
     for(const Santa& s: santas) {
