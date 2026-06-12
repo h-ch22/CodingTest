@@ -6,13 +6,13 @@
 using namespace std;
 
 struct Participant;
+int n, m, k, exitR, exitC; // r: 세로 (열), c: 가로 (행)
 
-int n, m, k, exitR, exitC; // r: 세로, c: 가로
-vector<vector<int>> grid; // 0: 빈 칸, 1~9: 벽의 내구도
+vector<vector<int>> grid; // 0: 빈 칸, 1~: 내구도
 vector<Participant> participants;
 
-int dr[4] = { -1, 1, 0, 0 };
-int dc[4] = { 0, 0, -1, 1 };
+const int dr[4] = { -1, 1, 0, 0 };
+const int dc[4] = { 0, 0, -1, 1 };
 
 struct Participant {
     int r, c, moveCount;
@@ -25,15 +25,15 @@ struct Participant {
         moveCount = 0;
     }
 
-    void move(int r, int c, bool updateMoveCount) {
+    void move(int r, int c, bool updateCount) {
         if(isExit) return;
+
+        if(updateCount) {
+            moveCount++;
+        }
 
         this->r = r;
         this->c = c;
-
-        if(updateMoveCount) {
-            moveCount++;
-        }
 
         if(r == exitR && c == exitC) {
             isExit = true;
@@ -42,24 +42,12 @@ struct Participant {
 };
 
 struct RotateCandidate {
-    int size, lr, lc;
+    int r, c, size;
 
-    RotateCandidate(int lr, int lc, int size) {
-        this->lr = lr;
-        this->lc = lc;
+    RotateCandidate(int r, int c, int size) {
+        this->r = r;
+        this->c = c;
         this->size = size;
-    }
-
-    bool operator <(const RotateCandidate& other) const {
-        if(this->size == other.size) {
-            if(this->lr == other.lr) {
-                return this->lc < other.lc;
-            }
-
-            return this->lr < other.lr;
-        }
-
-        return this->size < other.size;
     }
 };
 
@@ -67,9 +55,19 @@ int getDistance(const int r1, const int r2, const int c1, const int c2) {
     return abs(r1 - r2) + abs(c1 - c2);
 }
 
-int getTotalDistance() {
-    int total = 0;
+bool checkAllParticipantsExit() {
+    for(const Participant& p: participants) {
+        if(!p.isExit) {
+            return false;
+        }
+    }
 
+    return true;
+}
+
+int getAllMoveCount() {
+    int total = 0;
+    
     for(const Participant& p: participants) {
         total += p.moveCount;
     }
@@ -80,14 +78,19 @@ int getTotalDistance() {
 void move() {
     for(Participant& p: participants) {
         if(p.isExit) continue;
-        
-        int r = p.r, c = p.c, originDistance = getDistance(r, exitR, c, exitC);
+
+        const int originDistance = getDistance(p.r, exitR, p.c, exitC);
 
         for(int i = 0; i < 4; i++) {
-            int nr = r + dr[i], nc = c + dc[i];
+            const int nr = p.r + dr[i];
+            const int nc = p.c + dc[i];
 
             if(0 <= nr && nr < n && 0 <= nc && nc < n) {
-                if(grid[nr][nc] == 0 && getDistance(nr, exitR, nc, exitC) < originDistance) {
+                if(grid[nr][nc] > 0) continue;
+
+                const int distance = getDistance(nr, exitR, nc, exitC);
+
+                if(distance < originDistance) {
                     p.move(nr, nc, true);
                     break;
                 }
@@ -96,14 +99,11 @@ void move() {
     }
 }
 
-bool isParticipantExists(const int lr, const int lc, const int size) {
-    const int rr = lr + size, rc = lc + size;
-
+bool isParticipantExists(const int startR, const int startC, const int endR, const int endC) {
     for(const Participant& p: participants) {
         if(p.isExit) continue;
-        
-        if(lr <= p.r && p.r < rr && lc <= p.c && p.c < rc) {
-            // cout << "Participant: " << p.r << ", " << p.c << " - range: " << lr << ", " << lc << " to " << rr << ", " << rc << "\n";
+
+        if(startR <= p.r && p.r <= endR && startC <= p.c && p.c <= endC) {
             return true;
         }
     }
@@ -111,17 +111,26 @@ bool isParticipantExists(const int lr, const int lc, const int size) {
     return false;
 }
 
-RotateCandidate selectRect() {
+RotateCandidate getRect() {
     for(int size = 2; size <= n; size++) {
-        for(int lr = 0; lr <= n - size; lr++) {
-            for(int lc = 0; lc <= n - size; lc++) {
-                int rr = lr + size - 1;
-                int rc = lc + size - 1;
+        for(int r = 0; r < n; r++) {
+            for(int c = 0; c < n; c++) {
+                const int startR = r, startC = c;
+                const int endR = r + size - 1, endC = c + size - 1;
 
-                if(!(lr <= exitR && exitR <= rr && lc <= exitC && exitC <= rc)) continue;
+                // 범위 초과
+                if(n <= endR || n <= endC) {
+                    continue;
+                }
 
-                if(isParticipantExists(lr, lc, size)) {
-                    return RotateCandidate(lr, lc, size);
+                // 출구가 포함되어 있을 때 계속
+                if(startR <= exitR && exitR <= endR && startC <= exitC && exitC <= endC) {
+                    // 참가자가 포함되어 있지 않은 경우 skip
+                    if(!isParticipantExists(startR, startC, endR, endC)) {
+                        continue;
+                    }
+
+                    return RotateCandidate(r, c, size);
                 }
             }
         }
@@ -131,49 +140,50 @@ RotateCandidate selectRect() {
 }
 
 void rotate(const RotateCandidate& rect) {
+    const int startR = rect.r, startC = rect.c;
+    const int endR = rect.r + rect.size, endC = rect.c + rect.size;
+    int newExitR = exitR, newExitC = exitC;
+
     vector<vector<int>> tmp(rect.size, vector<int>(rect.size));
 
-    for(int r = 0; r < rect.size; r++) {
-        for(int c = 0; c < rect.size; c++) {
-            int value = grid[rect.lr + r][rect.lc + c];
+    for(int i = startR; i < endR; i++) {
+        for(int j = startC; j < endC; j++) {
+            // global -> local
+            const int r = i - rect.r, c = j - rect.c;
+            
+            // rotate (r, c) -> (c, L - 1 - r)
+            const int newR = c, newC = rect.size - 1 - r;
+            tmp[newR][newC] = max(grid[i][j] - 1, 0);
 
-            if(value > 0) value--;
-            tmp[c][rect.size - 1 - r] = value;
+            if(i == exitR && j == exitC) {
+                newExitR = newR + rect.r, newExitC = newC + rect.c;
+            }
         }
     }
 
-    for(int r = 0; r < rect.size; r++) {
-        for(int c = 0; c < rect.size; c++) {
-            grid[rect.lr + r][rect.lc + c] = tmp[r][c];
+    // apply
+    for(int i = 0; i < rect.size; i++) {
+        for(int j = 0; j < rect.size; j++) {
+            const int finalR = i + rect.r, finalC = j + rect.c;
+
+            grid[finalR][finalC] = tmp[i][j];
         }
     }
 
-    int localExitR = exitR - rect.lr;
-    int localExitC = exitC - rect.lc;
-
-    exitR = rect.lr + localExitC;
-    exitC = rect.lc + rect.size - 1 - localExitR;
+    exitR = newExitR;
+    exitC = newExitC;
 
     for(Participant& p: participants) {
         if(p.isExit) continue;
 
-        if(rect.lr <= p.r && p.r < rect.lr + rect.size && rect.lc <= p.c && p.c < rect.lc + rect.size) {
-            int localR = p.r - rect.lr;
-            int localC = p.c - rect.lc;
+        if(startR <= p.r && p.r < endR && startC <= p.c && p.c < endC) {
+            const int localR = p.r - startR, localC = p.c - startC;
+            const int newR = localC, newC = rect.size - 1 - localR;
+            const int finalR = newR + startR, finalC = newC + startC;
 
-            p.move(rect.lr + localC, rect.lc + rect.size - 1 - localR, false);
+            p.move(finalR, finalC, false);
         }
     }
-}
-
-bool isAllParticipantsExit() {
-    for(const Participant& p: participants) {
-        if(!p.isExit) {
-            return false;
-        }
-    }
-
-    return true;
 }
 
 int main() {
@@ -181,6 +191,7 @@ int main() {
     cin.tie(nullptr);
 
     cin >> n >> m >> k;
+
     grid.assign(n, vector<int>(n));
 
     for(int i = 0; i < n; i++) {
@@ -197,25 +208,23 @@ int main() {
     }
 
     cin >> exitR >> exitC;
+
     exitR--;
     exitC--;
 
     while(k--) {
-        if(isAllParticipantsExit()) {
+        move();
+
+        if(checkAllParticipantsExit()) {
             break;
         }
 
-        move();
-        RotateCandidate r = selectRect();
-
-        if(r.size > -1) {
-            rotate(r);
-        }
+        RotateCandidate rect = getRect();
+        rotate(rect);
     }
 
-    cout << getTotalDistance() << "\n";
+    cout << getAllMoveCount() << "\n";
     cout << ++exitR << " " << ++exitC << "\n";
 
     return 0;
 }
-
