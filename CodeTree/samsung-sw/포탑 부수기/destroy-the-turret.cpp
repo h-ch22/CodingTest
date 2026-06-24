@@ -1,126 +1,132 @@
 #include <iostream>
-#include <vector>
 #include <algorithm>
+#include <vector>
 #include <deque>
-
-#define MAX 1e6
-#define MIN 0
 
 using namespace std;
 
-struct Turret {
-    int x, y, attackTime, power;
+struct Turret;
 
-    Turret(int x, int y, int attackTime, int power) {
-        this->x = x;
-        this->y = y;
-        this->attackTime = attackTime;
+int n, m, k, currentTurn, attacker, target;
+vector<vector<int>> grid;
+vector<Turret> turrets;
+
+struct Turret {
+    int lastAttackedTurn, power, r, c;
+    bool isAttacked;
+
+    Turret(int r, int c, int power) {
+        this->r = r;
+        this->c = c;
         this->power = power;
+        
+        lastAttackedTurn = 0;
+        isAttacked = false;
     }
 
-    bool operator<(const Turret& other) {
-        if(power <= 0 && other.power > 0) return false;
-        if(power > 0 && other.power <= 0) return true;
+    void changePower(const int newPower) {
+        if(newPower < power) isAttacked = true;
+        grid[r][c] = newPower;
+        power = newPower;
+    }
+
+    void updateAttackedStatus() {
+        isAttacked = false;
+    }
+
+    const bool operator <(const Turret& other) const {
         if(power != other.power) return power < other.power;
-        if(attackTime != other.attackTime) return attackTime > other.attackTime;
-        if(x + y != other.x + other.y) return x + y > other.x + other.y;
-        else return x > other.x;
+        if(lastAttackedTurn != other.lastAttackedTurn) return lastAttackedTurn > other.lastAttackedTurn;
+        if(r + c != other.r + other.c) return r + c > other.r + other.c;
+
+        return c > other.c;
     }
 };
 
-int n, m, k, currentTurn;
-vector<Turret> turrets;
-vector<vector<int>> attackTimes;
-vector<vector<bool>> isAffected;
-vector<vector<int>> grid;
+void selectAttacker() {
+    sort(turrets.begin(), turrets.end());
 
-int rDx[4] = { 1, 0, -1, 0 };
-int rDy[4] = { 0, 1, 0, -1 };
+    for(int i = 0; i < turrets.size(); i++) {
+        if(turrets[i].power > 0) {
+            attacker = i;
+            turrets[i].changePower(turrets[i].power + (n + m));
+            turrets[i].lastAttackedTurn = currentTurn;
+            return;
+        }
+    }
+}
 
-int sDx[8] = { -1, 0, 1, 0, -1, -1, 1, 1 };
-int sDy[8] = { 0, -1, 0, 1, -1, 1, -1, 1 };
-
-int getMaxPowerTurret() {
+void selectTarget() {
     for(int i = turrets.size() - 1; i >= 0; i--) {
         if(turrets[i].power > 0) {
+            target = i;
+            return;
+        }
+    }
+}
+
+int getTurret(int r, int c) {
+    for(int i = 0; i < turrets.size(); i++) {
+        if(turrets[i].r == r && turrets[i].c == c) {
             return i;
         }
     }
 }
 
-vector<Turret> select() {
-    sort(turrets.begin(), turrets.end());
-
-    int idx = getMaxPowerTurret();
-    Turret target = turrets[idx];
-
-    turrets[0].power += (n + m);
-    turrets[0].attackTime = currentTurn;
-
-    grid[turrets[0].y][turrets[0].x] += (n + m);
-
-    Turret attacker = turrets[0];
-
-    // for(const Turret& t: turrets) {
-    //     cout << t.y << "," << t.x << " : " << t.power << "\n";
-    // }
-
-    isAffected[target.y][target.x] = true;
-    attackTimes[attacker.y][attacker.x] = currentTurn;
-
-    return vector<Turret>{ attacker, target };
-}
-
-/*
-* bool raserAttack(attacker: pair<int, int>, target: pair<int, int>)
-* attacker가 target에게 레이저 공격을 한다.
-* return 값이 false인 경우 attacker가 target에게 갈 수 있는 경로가 없는 상태를 의미한다.
-*/
-bool raserAttack(const Turret attacker, const Turret target) {
+bool raserAttack() {
+    vector<vector<pair<int, int>>> parents(n, vector<pair<int, int>>(m, make_pair(-1, -1)));
+    vector<pair<int, int>> targets;
     deque<pair<int, int>> queue;
 
-    vector<vector<bool>> visited(n, vector<bool>(m));
-    vector<vector<pair<int, int>>> parents(n, vector<pair<int, int>>(m));
+    const int dr[4] = { 0, 1, 0, -1 };
+    const int dc[4] = { 1, 0, -1, 0 };
 
-    queue.emplace_back(attacker.y, attacker.x);
-    visited[attacker.y][attacker.x] = true;
+    queue.emplace_back(turrets[attacker].r, turrets[attacker].c);
 
     while(!queue.empty()) {
-        pair<int, int> current = queue.front();
+        const pair<int, int> current = queue.front();
         queue.pop_front();
 
-        if(current == make_pair(target.y, target.x)) {
-            // cout << grid[target.y][target.x] << " -> ";
-            grid[target.y][target.x] -= attacker.power;
-            // cout << grid[target.y][target.x] << "\n";
+        const int r = current.first, c = current.second;
 
-            pair<int, int> trace = parents[current.first][current.second];
+        const Turret targetTurret = turrets[target];
 
-            while(trace != make_pair(attacker.y, attacker.x)) {
-                // cout << "Trace: " << grid[trace.first][trace.second] << " -> ";
-                grid[trace.first][trace.second] -= (attacker.power / 2);
-                // cout << grid[trace.first][trace.second] << " : ";
+        if(targetTurret.r == current.first && targetTurret.c == current.second) {
+            const int p = turrets[attacker].power;
+            turrets[target].changePower(turrets[target].power - p);
 
-                isAffected[trace.first][trace.second] = true;
+            int currentR = r, currentC = c;
 
-                // cout << "(" << trace.first << ", " << trace.second << ")" << "\n";
-                trace = parents[trace.first][trace.second];
+            while(true) {
+                const pair<int, int> to = parents[currentR][currentC];
+                currentR = to.first, currentC = to.second;
+
+                if(currentR == turrets[attacker].r && currentC == turrets[attacker].c) {
+                    break;
+                }
+
+                targets.emplace_back(currentR, currentC);
+            }
+
+            for(const pair<int, int> t: targets) {
+                const int idx = getTurret(t.first, t.second);
+                turrets[idx].changePower(turrets[idx].power - (p / 2));
             }
 
             return true;
         }
 
         for(int i = 0; i < 4; i++) {
-            int ny = current.first + rDy[i];
-            int nx = current.second + rDx[i];
+            int nr = r + dr[i];
+            int nc = c + dc[i];
 
-            ny = (ny % n + n) % n;
-            nx = (nx % m + m) % m;
+            // 다시 한번 물어보기: 공식
+            nr = (nr % n + n) % n;
+            nc = (nc % m + m) % m;
 
-            if(grid[ny][nx] > 0 && !visited[ny][nx]) {
-                queue.emplace_back(ny, nx);
-                parents[ny][nx] = current;
-                visited[ny][nx] = true;
+            if(parents[nr][nc].first == -1 && parents[nr][nc].second == -1 && grid[nr][nc] > 0) {
+                parents[nr][nc] = current;
+                queue.emplace_back(nr, nc);
             }
         }
     }
@@ -128,35 +134,36 @@ bool raserAttack(const Turret attacker, const Turret target) {
     return false;
 }
 
-void shellAttack(const Turret attacker, const Turret target) {
-    grid[target.y][target.x] -= attacker.power;
+void shellAttack() {
+    const int dr[8] = { -1, 1, 0, 0, -1, 1, 1, -1 };
+    const int dc[8] = { 0, 0, -1, 1, -1, 1, -1, 1 };
+
+    const int tR = turrets[target].r, tC = turrets[target].c;
+    const int aP = turrets[attacker].power;
+
+    turrets[target].changePower(turrets[target].power - aP);
 
     for(int i = 0; i < 8; i++) {
-        int ny = target.y + sDy[i];
-        int nx = target.x + sDx[i];
+        int nr = tR + dr[i];
+        int nc = tC + dc[i];
 
-        ny = (ny % n + n) % n;
-        nx = (nx % m + m) % m;
+        nr = (nr % n + n) % n;
+        nc = (nc % m + m) % m;
 
-        if(ny == attacker.y && nx == attacker.x) continue;
+        if(grid[nr][nc] <= 0) continue;
 
-        grid[ny][nx] -= (attacker.power / 2);
-        isAffected[ny][nx] = true;
+        const int idx = getTurret(nr, nc);
+        
+        if(turrets[idx].power > 0 && idx != attacker) {
+            turrets[idx].changePower(turrets[idx].power - (aP / 2));
+        }
     }
 }
 
-void syncPower() {
-    for(Turret& t: turrets) {
-        t.power = grid[t.y][t.x];
-    }
-}
-
-void increasePower() {
-    for(int i = 0; i < n; i++) {
-        for(int j = 0; j < m; j++) {
-            if(attackTimes[i][j] != currentTurn && !isAffected[i][j] && grid[i][j] > 0) {
-                grid[i][j] += 1;
-            }
+void updatePower() {
+    for(int i = 0; i < turrets.size(); i++) {
+        if(i != attacker && i != target && turrets[i].power > 0 && !turrets[i].isAttacked) {
+            turrets[i].changePower(turrets[i].power + 1);
         }
     }
 }
@@ -164,73 +171,70 @@ void increasePower() {
 bool shouldStop() {
     int count = 0;
 
-    for(int i = 0; i < n; i++) {
-        for(int j = 0; j < m; j++) {
-            if(grid[i][j] > 0) {
-                count++;
+    for(const Turret& t: turrets) {
+        if(t.power > 0) count++;
 
-                if(count > 1) {
-                    return false;
-                }
-            }
-        }
+        if(count > 1) return false;
     }
 
     return true;
+}
+
+void resetAttackStatus() {
+    for(Turret& t: turrets) {
+        t.updateAttackedStatus();
+    }
 }
 
 int main() {
     ios::sync_with_stdio(false);
     cin.tie(nullptr);
 
-    currentTurn = 1;
-
     cin >> n >> m >> k;
     grid.assign(n, vector<int>(m));
-    attackTimes.assign(n, vector<int>(m));
-    isAffected.assign(n, vector<bool>(m, false));
 
     for(int i = 0; i < n; i++) {
         for(int j = 0; j < m; j++) {
             int power;
             cin >> power;
 
-            turrets.emplace_back(Turret(j, i, 0, power));
             grid[i][j] = power;
+
+            if(power > 0) {
+                turrets.emplace_back(Turret(i, j, power));
+            }
         }
     }
 
+    currentTurn = 1;
+
     while(k--) {
-        vector<Turret> selected = select();
-        Turret attacker = selected[0], target = selected[1];
+        resetAttackStatus();
 
-        // cout << "Attacker: " << attacker.y << ", " << attacker.x << " (Power: " << attacker.power << ") " << "Target: " << target.y << ", " << target.x << " (Power: " << target.power << ")" << "\n";
+        if(shouldStop()) break;
 
-        bool raserAttackResult = raserAttack(attacker, target);
-
-        if(!raserAttackResult) {
-            shellAttack(attacker, target);
+        selectAttacker();
+        selectTarget();
+        
+        if(!raserAttack()) {
+            shellAttack();
         }
 
-        if(shouldStop()) {
-            break;
-        }
+        if(shouldStop()) break;
 
-        increasePower();
-        syncPower();
-        isAffected.assign(n, vector<bool>(m, false));
+        updatePower();
+        
         currentTurn++;
-
-        // for(const Turret& t: turrets) {
-        //    cout << t.y << ", " << t.x << ": " << t.power << "\n";
-        // }
     }
 
     sort(turrets.begin(), turrets.end());
 
-    int maxIdx = getMaxPowerTurret();
-
-    cout << turrets[maxIdx].power << "\n";
+    for(int i = turrets.size() - 1; i >= 0; i--) {
+        if(turrets[i].power > 0) {
+            cout << turrets[i].power << "\n";
+            break;
+        }
+    }
 
     return 0;
 }
