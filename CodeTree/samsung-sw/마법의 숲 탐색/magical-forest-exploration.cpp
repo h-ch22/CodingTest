@@ -1,61 +1,52 @@
 #include <iostream>
 #include <vector>
-#include <algorithm>
 #include <deque>
+#include <algorithm>
 
 using namespace std;
 
 struct Golem;
-
 int r, c, k, answer;
 vector<vector<int>> grid;
 vector<vector<bool>> exitList;
 vector<Golem> golems;
 
-const int dr[4] = { -1, 0, 1, 0 };
-const int dc[4] = { 0, -1, 0, 1 };
+const int dr[4] = { -1, 1, 0, 0 };
+const int dc[4] = { 0, 0, -1, 1 };
 
 struct Golem {
-    int id, r, c, d; // 0: 북, 1: 동, 2: 남, 3: 서
-
+    int id, r, c, d;
+    
     Golem() {}
     Golem(const int id, const int c, const int d) {
         this->id = id;
         this->c = c;
         this->d = d;
+
         r = 0;
     }
 
-    void move(const int r, const int c) {
-        this->r = r;
-        this->c = c;
-    }
-
-    void rotateAndMove(const int r, const int c, const int d) {
-        this->r = r;
-        this->c = c;
-        this->d = d;
-    }
-
     void applyToGrid() {
+        // grid에 현재 id를 골렘의 영역만큼 칠한 후 exit에 현재 출구 방향에 따라 마킹
         grid[r][c] = id;
-
+        
         for(int i = 0; i < 4; i++) {
-            grid[r + dr[i]][c + dc[i]] = id;
-        }
+            const int nr = r + dr[i], nc = c + dc[i];
 
-        // 출구 좌표 저장
+            grid[nr][nc] = id;
+        }
+        
         switch(d) {
             case 0:
                 exitList[r - 1][c] = true;
                 break;
-
+            
             case 1:
                 exitList[r][c + 1] = true;
                 break;
 
             case 2:
-                exitList[r + 1][c] =  true;
+                exitList[r + 1][c] = true;
                 break;
 
             case 3:
@@ -76,127 +67,134 @@ void resetGrid() {
     }
 }
 
-// 정령의 이동
+bool canMoveDown(const int r, const int c) {
+    const int toR = r + 1, toC = c; // r에 +1해서 아래로 한 칸 내림 (c는 변함 X)
+
+    if(toR >= ::r) return false; // 1. 가려는 지점(가운데 기준)이 범위를 초과하는 경우 false
+
+    // 2. 가운데를 제외한 골렘의 부분을 확인한다.
+    for(int i = 0; i < 4; i++) {
+        const int nr = toR + dr[i], nc = toC + dc[i];
+
+        if(0 <= nr && nr < ::r && 0 <= nc && nc < ::c) {
+            if(grid[nr][nc] > -1) {
+                return false; // 3. grid의 해당 부분이 빈 칸이 아닌 경우 false
+            }
+        } else {
+            return false; // 2. 몸통 부분이 범위를 초과하는 경우 false
+        }
+    }
+
+    return true; // 위 사항을 모두 만족하는 경우 true
+}
+
+bool canRotateLeftAndDown(const int r, const int c) {
+    const int toR = r, toC = c - 1; // r은 그대로, c는 한 칸 왼쪽으로 이동한다.
+
+    if(toC >= ::c || toC < 0) return false;
+
+    for(int i = 0; i < 4; i++) {
+        const int nr = toR + dr[i], nc = toC + dc[i];
+
+        if(0 <= nr && nr < ::r && 0 <= nc && nc < ::c) {
+            if(grid[nr][nc] > -1) {
+                return false;
+            }
+        } else {
+            return false;
+        }
+    }
+
+    return canMoveDown(toR, toC); // canMoveDown 호출로 위에서 회전할 수 있다고 판단되는 경우 아래로 내려갈 수 있는지 확인한 결과를 return
+}
+
+bool canRotateRightAndDown(const int r, const int c) {
+    const int toR = r, toC = c + 1; // r은 그대로, c는 한 칸 오른쪽으로 이동한다.
+
+    if(toC >= ::c || toC < 0) return false;
+
+    for(int i = 0; i < 4; i++) {
+        const int nr = toR + dr[i], nc = toC + dc[i];
+
+        if(0 <= nr && nr < ::r && 0 <= nc && nc < ::c) {
+            if(grid[nr][nc] > -1) {
+                return false;
+            }
+        } else {
+            return false;
+        }
+    }
+
+    return canMoveDown(toR, toC);
+}
+
 void bfs(const Golem& golem) {
-    deque<pair<int, int>> queue; // first: 출구로 나왔는지 여부, second - third: 좌표
+    deque<pair<int, int>> queue;
     vector<vector<bool>> visited(r, vector<bool>(c));
 
     queue.emplace_back(golem.r, golem.c);
     visited[golem.r][golem.c] = true;
 
-    int maxRow = -1;
+    int maxR = -1;
 
     while(!queue.empty()) {
         const pair<int, int> current = queue.front();
         queue.pop_front();
 
-        maxRow = max(maxRow, current.first);
+        const int r = current.first, c = current.second;
+        maxR = max(r, maxR); // queue에서 꺼내자마자 (어차피 이 곳은 간 곳이기 때문에 무방) 갱신해주면 조기 종료가 가능해진다.
+
+        if(maxR == ::r - 1) {
+            break; // 정령이 제일 아래(r - 1)까지 내려왔다면 더 이상 BFS를 진행할 이유가 없다.
+        }
 
         for(int i = 0; i < 4; i++) {
-            const int nr = current.first + dr[i], nc = current.second + dc[i];
+            const int nr = r + dr[i], nc = c + dc[i];
 
-            if(0 <= nr && nr < r && 0 <= nc && nc < c && !visited[nr][nc] && grid[nr][nc] > -1) {  
-                // grid의 현재 위치가 새 위치의 ID(골렘)와 같을 때 또는 현재 위치가 출구일 때 (출구이면 어차피 이동할 수 있고, 새 위치가 골렘 영역 밖인 경우는 위에서 컷 당하니까)              
-                if(grid[nr][nc] == grid[current.first][current.second] || exitList[current.first][current.second]) {
-                    visited[nr][nc] = true;
+            if(0 <= nr && nr < ::r && 0 <= nc && nc < ::c && !visited[nr][nc]) {
+                // 새로갈 위치가 현재 위치의 id와 동일(현재 golem 내부)하거나, 이전 위치가 출구(현재 위치가 golem 내부가 아니더라도)이고, 현재 위치가 어느 골렘 안인 경우 계속 진행한다.
+                if(grid[nr][nc] == grid[r][c] || (exitList[r][c] && grid[nr][nc] > -1)) {
+                    visited[nr][nc] = true; // 일반적인 BFS는 방문하자마자 범위만 확인하고 visited를 true로 바꾸지만, 이 문제는 정령이 이동하는 것으로, 동일한 위치이더라도 이전 위치가 exit였는지, 아니였는지에 따라 다음 상태가 정해지고, 따라서 같은 위치에 여러번 방문할 수 있다.
                     queue.emplace_back(nr, nc);
                 }
             }
         }
     }
 
-    if(maxRow > -1) {
-        answer += (maxRow - 2);
-    }
-}
-
-// 현재 칸에서 한 칸 내려갈 수 있는지 확인
-bool canGoDown(const int r, const int c) {
-    // 범위 초과
-    if(r < 0 || r >= ::r) return false;
-    if(c < 0 || c >= ::c) return false;
-
-    // 중심을 기준으로 한 칸 바로 아래가 비어있지 않다면 return false
-    if(grid[r][c] > -1) return false;
-
-    for(int i = 0; i < 4; i++) {
-        const int nr = r + dr[i], nc = c + dc[i];
-
-        if(nr < 0 || nr >= ::r || nc < 0 || nc >= :: c) return false;
-        if(grid[nr][nc] > -1) return false;
-    }
-
-    return true;
-}
-
-// 현재 칸에서 왼쪽으로 회전 후 한 칸 내려갈 수 있는지 확인
-bool canRotateLeftAndDown(const int r, const int c, const int d) {
-    // 범위 초과
-    if(r < 0 || r >= ::r) return false;
-    if(c < 0 || c >= ::c) return false;
-
-    if(grid[r][c] > -1) return false; // 중앙
-
-    for(int i = 0; i < 4; i++) {
-        const int nr = r + dr[i], nc = c + dc[i];
-
-        if(nr < 0 || nr >= ::r || nc < 0 || nc >= :: c) return false;
-        if(grid[nr][nc] > -1) return false;
-    }
-    
-    return canGoDown(r + 1, c);
-}
-
-// 현재 칸에서 오른쪽으로 회전 후 한 칸 내려갈 수 있는지 확인
-bool canRotateRightAndDown(const int r, const int c, const int d) {
-    // 범위 초과
-    if(r < 0 || r >= ::r) return false;
-    if(c < 0 || c >= ::c) return false;
-
-    if(grid[r][c] > -1) return false; // 중앙
-
-    for(int i = 0; i < 4; i++) {
-        const int nr = r + dr[i], nc = c + dc[i];
-
-        if(nr < 0 || nr >= ::r || nc < 0 || nc >= :: c) return false;
-        if(grid[nr][nc] > -1) return false;
-    }
-
-    return canGoDown(r + 1, c);
+    answer += (maxR - 2); // padding만큼 빼주기 (2를 빼주는 이유는 정령이 내려오기 전에는 완전체 (3열)가 grid 바깥에 있지만 모두 내려온 경우에는 아래에 1칸 (몸통 아래)이 존재하기 때문에 정령이 몸통 위치 기준 1칸 아래로 내려갈 수 있다.)
 }
 
 void move(Golem& golem) {
     while(true) {
-        if(canGoDown(golem.r + 1, golem.c)) {
-            golem.move(golem.r + 1, golem.c);
+        if(canMoveDown(golem.r, golem.c)) {
+            golem.r += 1;
             continue;
         }
 
-        const int rotatedLeft = (golem.d + 3) % 4;
-        const int rotatedRight = (golem.d + 1) % 4;
+        if(canRotateLeftAndDown(golem.r, golem.c)) {
+            golem.r += 1;
+            golem.c -= 1;
+            golem.d = (golem.d + 3) % 4; // 반시계 방향 회전은 -1을 해줘야하지만, 그렇게 되면 modulo 연산 과정에서 음수가 나올 수 있어 -1과 동일한 3칸 시계 방향 이동으로 처리 후 modulo 연산을 한다.
 
-        if(canRotateLeftAndDown(golem.r, golem.c - 1, rotatedLeft)) {
-            golem.rotateAndMove(golem.r + 1, golem.c - 1, rotatedLeft);
             continue;
         }
 
-        if(canRotateRightAndDown(golem.r, golem.c + 1, rotatedRight)) {
-            golem.rotateAndMove(golem.r + 1, golem.c + 1, rotatedRight);
+        if(canRotateRightAndDown(golem.r, golem.c)) {
+            golem.r += 1;
+            golem.c += 1;
+            golem.d = (golem.d + 1) % 4; // 시계 방향 회전은 +1과 동일하다. 이후 modulo 연산을 진행해 0-3 사이에 갇히도록 만든다.
             continue;
         }
 
-        // 더 이상 움직일 수 없는 경우
+        break; // 다 움직였으면 break
+    }
 
-        // 그리드에 접근조차 못했을 때 리셋
-        if(golem.r < 4) {
-            resetGrid();
-            break;
-        }
-
-        // 골렘의 현재 좌표를 Grid에 적용
-        golem.applyToGrid();
-        bfs(golem);
-        break;
+    // golem.r, c는 중앙 기준이므로, golem 자체가 모두 내려온 것은 중앙이 4 (위에 한 칸 있으니까) 이상일 때임.
+    if(golem.r >= 4) {
+        golem.applyToGrid(); // 다 내려왔으면 apply
+        bfs(golem); // 정령의 이동 시작
+    } else {
+        resetGrid(); // 그렇지 않으면 grid를 reset한다.
     }
 }
 
@@ -205,19 +203,18 @@ int main() {
     cin.tie(nullptr);
 
     cin >> r >> c >> k;
-    answer = 0;
-    r += 3; // Padding (0-2)
 
+    r += 3; // Padding (0-2)
     grid.assign(r, vector<int>(c, -1));
-    exitList.assign(r, vector<bool>(c, false));
-    
+    exitList.assign(r, vector<bool>(c));
+
     for(int i = 0; i < k; i++) {
         int c, d;
         cin >> c >> d;
 
-        c--;
-        golems.emplace_back(Golem(i, c, d));
-        move(golems.back());
+        Golem currentGolem = Golem(i, --c, d);
+        move(currentGolem);
+        golems.emplace_back(currentGolem);
     }
 
     cout << answer << "\n";
